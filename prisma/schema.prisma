@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Status {
+  pending
+  gagal
+  berhasil
+}
+
+model Users {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model AboutUs {
+  id          Int      @id @default(autoincrement())
+  nama        String
+  imageUrl    String?
+  description String?
+  imageId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("aboutus")
+}
+
+model Programs {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  imageUrl    String?
+  imageId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("programs")
+}
+
+model OurPartner {
+  id        Int      @id @default(autoincrement())
+  name      String
+  imageUrl  String?
+  imageId   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("our_partners")
+}
+
+model imageSlider {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String
+  imageUrl    String?
+  imageId     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("image_sliders")
+}
+
+model Transaction {
+  id        Int      @id @default(autoincrement())
+  orderId   String   @unique
+  nama      String
+  email     String
+  notes     String
+  amount    Int
+  status    Status   @default(pending) // ubah dari String jadi enum Status
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("transactions")
+}
+
