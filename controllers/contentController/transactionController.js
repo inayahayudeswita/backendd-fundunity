@@ -9,10 +9,11 @@ const snap = new midtransClient.Snap({
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
 
-// Create Transaction
+// ✅ 1. Create Transaction (Snap popup)
 exports.createTransaction = async (req, res) => {
   const { nama, email, amount, notes } = req.body;
 
+  // Validasi input
   if (!nama || !email || !amount || !notes) {
     return res.status(400).json({
       error: "Missing required fields: nama, email, amount, notes",
@@ -33,12 +34,23 @@ exports.createTransaction = async (req, res) => {
     credit_card: {
       secure: true,
     },
+    item_details: [
+      {
+        id: "donasi",
+        name: "Donasi",
+        quantity: 1,
+        price: amount,
+      },
+    ],
+    enabled_payments: ["gopay", "bank_transfer", "qris"],
     notification_url: process.env.MIDTRANS_NOTIFICATION_URL,
   };
 
   try {
+    // 🔁 Buat token transaksi Snap
     const midtransRes = await snap.createTransaction(parameter);
 
+    // 💾 Simpan ke DB (status awal: pending)
     await prisma.transaction.create({
       data: {
         orderId,
@@ -50,9 +62,10 @@ exports.createTransaction = async (req, res) => {
       },
     });
 
+    // ✅ Kirim token ke FE
     res.status(201).json({
       snapToken: midtransRes.token,
-      redirectUrl: midtransRes.redirect_url,
+      redirectUrl: midtransRes.redirect_url, // opsional kalau mau tampilkan info tambahan
       message: "Transaction created successfully",
     });
   } catch (error) {
@@ -61,7 +74,7 @@ exports.createTransaction = async (req, res) => {
   }
 };
 
-// Get All Transactions
+// ✅ 2. Get All Transactions
 exports.getTransactions = async (req, res) => {
   try {
     const transactions = await prisma.transaction.findMany({
@@ -74,10 +87,10 @@ exports.getTransactions = async (req, res) => {
   }
 };
 
-// Handle Midtrans Webhook Notification (optional, jika webhook dipakai)
+// ✅ 3. Handle Midtrans Webhook Notification
 exports.handleNotification = async (req, res) => {
   try {
-    const rawBody = req.body.toString();
+    const rawBody = req.body.toString("utf8");
     const data = JSON.parse(rawBody);
 
     const { order_id, status_code, gross_amount, signature_key } = data;
@@ -102,14 +115,24 @@ exports.handleNotification = async (req, res) => {
       return res.status(404).send("Transaction not found");
     }
 
+    // 🔄 Mapping status dari Midtrans ke lokal
     let newStatus = "pending";
 
-    if (data.transaction_status === "capture") {
-      newStatus = data.fraud_status === "challenge" ? "gagal" : "berhasil";
-    } else if (data.transaction_status === "settlement") {
-      newStatus = "berhasil";
-    } else if (["cancel", "deny", "expire"].includes(data.transaction_status)) {
-      newStatus = "gagal";
+    switch (data.transaction_status) {
+      case "capture":
+        newStatus = data.fraud_status === "challenge" ? "gagal" : "berhasil";
+        break;
+      case "settlement":
+        newStatus = "berhasil";
+        break;
+      case "cancel":
+      case "deny":
+      case "expire":
+        newStatus = "gagal";
+        break;
+      default:
+        newStatus = "pending";
+        break;
     }
 
     await prisma.transaction.update({
