@@ -2,8 +2,10 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const transactionController = require("./controllers/contentController/transactionController");
-const ourPartnerController = require("./controllers/contentController/ourPartnerController");
 const aboutusRoutes = require("./routes/aboutusRoutes");
+const imagesliderRoutes = require("./routes/imagesliderRoutes");
+const programRoutes = require("./routes/programRoutes");
+const ourpartnerRoutes = require("./routes/ourpartnerRoutes");
 const midtransPolling = require("./midtransPolling");
 const { connectDB } = require("./config/db");
 
@@ -27,6 +29,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use("/v1/content/aboutus", aboutusRoutes);
+app.use("/v1/content/imageslider", imagesliderRoutes);
+app.use("/v1/content/program", programRoutes);
+app.use("/v1/content/ourpartner", ourpartnerRoutes);
 
 
 // Routes
