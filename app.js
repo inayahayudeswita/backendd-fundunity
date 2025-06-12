@@ -3,7 +3,7 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const transactionController = require("./controllers/contentController/transactionController");
 const ourPartnerController = require("./controllers/contentController/ourPartnerController");
-const aboutUsRoutes = require("./routes/aboutusRoutes");
+const aboutusRoutes = require("./routes/aboutusRoutes");
 const midtransPolling = require("./midtransPolling");
 const { connectDB } = require("./config/db");
 
