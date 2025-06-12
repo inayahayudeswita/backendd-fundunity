@@ -94,9 +94,11 @@ exports.getTransactions = async (req, res) => {
 exports.handleNotification = async (req, res) => {
   try {
     const rawBody = req.body.toString("utf8");
-    const data = JSON.parse(rawBody);
+    console.log("📩 Notification received:", rawBody);
 
-    const { order_id, status_code, gross_amount, signature_key } = data;
+    const data = JSON.parse(rawBody);
+    const { order_id, status_code, gross_amount, signature_key, transaction_status, fraud_status } = data;
+
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
 
     const expectedSignature = crypto
@@ -118,12 +120,11 @@ exports.handleNotification = async (req, res) => {
       return res.status(404).send("Transaction not found");
     }
 
-    // 🔄 Mapping status dari Midtrans ke lokal
     let newStatus = "pending";
 
-    switch (data.transaction_status) {
+    switch (transaction_status) {
       case "capture":
-        newStatus = data.fraud_status === "challenge" ? "gagal" : "berhasil";
+        newStatus = fraud_status === "challenge" ? "gagal" : "berhasil";
         break;
       case "settlement":
         newStatus = "berhasil";
@@ -133,17 +134,23 @@ exports.handleNotification = async (req, res) => {
       case "expire":
         newStatus = "gagal";
         break;
-      default:
+      case "pending":
         newStatus = "pending";
         break;
+      default:
+        newStatus = "pending";
     }
 
-    await prisma.transaction.update({
-      where: { orderId: order_id },
-      data: { status: newStatus },
-    });
+    if (existing.status !== newStatus) {
+      await prisma.transaction.update({
+        where: { orderId: order_id },
+        data: { status: newStatus },
+      });
+      console.log(`✅ Transaction ${order_id} status updated: ${existing.status} -> ${newStatus}`);
+    } else {
+      console.log(`ℹ️ Transaction ${order_id} status unchanged: ${existing.status}`);
+    }
 
-    console.log(`✅ Transaction ${order_id} updated to ${newStatus}`);
     res.status(200).send("OK");
   } catch (error) {
     console.error("❌ Webhook handler error:", error);
