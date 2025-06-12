@@ -4,7 +4,7 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 const snap = new midtransClient.Snap({
-  isProduction: false,
+  isProduction: true,
   serverKey: process.env.MIDTRANS_SERVER_KEY,
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
@@ -21,30 +21,33 @@ exports.createTransaction = async (req, res) => {
   }
 
   const orderId = `order-${Date.now()}`;
+const parameter = {
+  transaction_details: {
+    order_id: orderId,
+    gross_amount: amount,
+  },
+  customer_details: {
+    first_name: nama,
+    email,
+  },
+  credit_card: {
+    secure: true,
+  },
+  item_details: [
+    {
+      id: "donasi",
+      name: "Donasi",
+      quantity: 1,
+      price: amount,
+    },
+  ],
+  enabled_payments: ["gopay", "bank_transfer", "qris"],
+  notification_url: process.env.MIDTRANS_NOTIFICATION_URL,
+  callbacks: {
+    finish: "https://landing-page-fundunity.vercel.app/thankyou",
+  },
+};
 
-  const parameter = {
-    transaction_details: {
-      order_id: orderId,
-      gross_amount: amount,
-    },
-    customer_details: {
-      first_name: nama,
-      email,
-    },
-    credit_card: {
-      secure: true,
-    },
-    item_details: [
-      {
-        id: "donasi",
-        name: "Donasi",
-        quantity: 1,
-        price: amount,
-      },
-    ],
-    enabled_payments: ["gopay", "bank_transfer", "qris"],
-    notification_url: process.env.MIDTRANS_NOTIFICATION_URL,
-  };
 
   try {
     // 🔁 Buat token transaksi Snap
