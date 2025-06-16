@@ -43,7 +43,6 @@ const checkTransactions = async () => {
           bank,
         };
 
-        // Update hanya jika status-nya beda atau field lainnya belum terisi
         const isStatusChanged = newStatus !== trx.status;
         const hasMissingInfo =
           !trx.paymentType || !trx.transactionTime || !trx.vaNumber || !trx.bank;
@@ -56,7 +55,7 @@ const checkTransactions = async () => {
           console.log(`✅ Updated transaction ${trx.orderId} to ${newStatus}`);
         }
 
-        await delay(500); // prevent API rate limit
+        await delay(500);
       } catch (err) {
         console.error(`❌ Gagal update transaksi ${trx.orderId}:`, err.message);
       }
@@ -65,3 +64,12 @@ const checkTransactions = async () => {
     console.error("❌ Error saat fetch transaksi pending:", error.message);
   }
 };
+
+// ✅ Tambahkan fungsi start
+function start() {
+  console.log("🟢 Midtrans polling dimulai setiap 1 menit...");
+  cron.schedule("* * * * *", checkTransactions);
+}
+
+// ✅ Ekspor fungsi start
+module.exports = { start };
