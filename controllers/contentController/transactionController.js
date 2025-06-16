@@ -39,7 +39,6 @@ exports.createTransaction = async (req, res) => {
         price: amount,
       },
     ],
-    enabled_payments: ["gopay", "bank_transfer", "qris"],
     notification_url: process.env.MIDTRANS_NOTIFICATION_URL,
     callbacks: {
       finish: "https://landing-page-fundunity.vercel.app/thankyou",
