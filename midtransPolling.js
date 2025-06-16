@@ -31,25 +31,37 @@ const checkTransactions = async () => {
           newStatus = "gagal";
         }
 
-        if (newStatus !== trx.status) {
+        const vaNumber = response.va_numbers?.[0]?.va_number || null;
+        const bank = response.va_numbers?.[0]?.bank || null;
+
+        const updatedData = {
+          status: newStatus,
+          paymentType: response.payment_type || null,
+          transactionTime: response.transaction_time ? new Date(response.transaction_time) : null,
+          fraudStatus: response.fraud_status || null,
+          vaNumber,
+          bank,
+        };
+
+        // Update hanya jika status-nya beda atau field lainnya belum terisi
+        const isStatusChanged = newStatus !== trx.status;
+        const hasMissingInfo =
+          !trx.paymentType || !trx.transactionTime || !trx.vaNumber || !trx.bank;
+
+        if (isStatusChanged || hasMissingInfo) {
           await prisma.transaction.update({
             where: { orderId: trx.orderId },
-            data: { status: newStatus },
+            data: updatedData,
           });
           console.log(`✅ Updated transaction ${trx.orderId} to ${newStatus}`);
         }
-        await delay(500); // Delay supaya gak ngebomb API dan DB
+
+        await delay(500); // prevent API rate limit
       } catch (err) {
-        console.error(`❌ Gagal update transaksi ${trx.orderId}:`, err);
+        console.error(`❌ Gagal update transaksi ${trx.orderId}:`, err.message);
       }
     }
   } catch (error) {
-    console.error("❌ Error saat fetch transaksi pending:", error);
+    console.error("❌ Error saat fetch transaksi pending:", error.message);
   }
 };
-
-const start = () => {
-  cron.schedule("* * * * *", checkTransactions); // tiap menit jalan
-};
-
-module.exports = { start };

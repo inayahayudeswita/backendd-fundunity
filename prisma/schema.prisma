@@ -71,15 +71,21 @@ model imageSlider {
 }
 
 model Transaction {
-  id        Int      @id @default(autoincrement())
-  orderId   String   @unique
-  nama      String
-  email     String
-  notes     String
-  amount    Int
-  status    Status   @default(pending) // ubah dari String jadi enum Status
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  orderId         String   @unique
+  nama            String
+  email           String
+  notes           String
+  amount          Int
+  status          Status   @default(pending)
+  paymentType     String?  
+  transactionTime DateTime? 
+  fraudStatus     String?  
+  vaNumber        String?  
+  bank            String? 
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("transactions")
 }

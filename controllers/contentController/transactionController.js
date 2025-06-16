@@ -97,10 +97,21 @@ exports.handleNotification = async (req, res) => {
     console.log("📩 Notification received:", rawBody);
 
     const data = JSON.parse(rawBody);
-    const { order_id, status_code, gross_amount, signature_key, transaction_status, fraud_status } = data;
+    const {
+      order_id,
+      status_code,
+      gross_amount,
+      signature_key,
+      transaction_status,
+      fraud_status,
+      payment_type,
+      transaction_time,
+      va_numbers,
+    } = data;
 
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
 
+    // 🔐 Cek Signature
     const expectedSignature = crypto
       .createHash("sha512")
       .update(order_id + status_code + gross_amount + serverKey)
@@ -111,6 +122,7 @@ exports.handleNotification = async (req, res) => {
       return res.status(403).send("Invalid signature");
     }
 
+    // 🔍 Cari transaksi
     const existing = await prisma.transaction.findUnique({
       where: { orderId: order_id },
     });
@@ -120,8 +132,8 @@ exports.handleNotification = async (req, res) => {
       return res.status(404).send("Transaction not found");
     }
 
+    // 🔁 Tentukan status baru
     let newStatus = "pending";
-
     switch (transaction_status) {
       case "capture":
         newStatus = fraud_status === "challenge" ? "gagal" : "berhasil";
@@ -141,16 +153,24 @@ exports.handleNotification = async (req, res) => {
         newStatus = "pending";
     }
 
-    if (existing.status !== newStatus) {
-      await prisma.transaction.update({
-        where: { orderId: order_id },
-        data: { status: newStatus },
-      });
-      console.log(`✅ Transaction ${order_id} status updated: ${existing.status} -> ${newStatus}`);
-    } else {
-      console.log(`ℹ️ Transaction ${order_id} status unchanged: ${existing.status}`);
-    }
+    // 🔢 VA & bank (jika ada)
+    const vaNumber = va_numbers?.[0]?.va_number || null;
+    const bank = va_numbers?.[0]?.bank || null;
 
+    // ✅ Update DB
+    await prisma.transaction.update({
+      where: { orderId: order_id },
+      data: {
+        status: newStatus,
+        paymentType: payment_type || null,
+        transactionTime: transaction_time ? new Date(transaction_time) : null,
+        fraudStatus: fraud_status || null,
+        vaNumber,
+        bank,
+      },
+    });
+
+    console.log(`✅ Updated transaction ${order_id} to status: ${newStatus}`);
     res.status(200).send("OK");
   } catch (error) {
     console.error("❌ Webhook handler error:", error);
