@@ -31,13 +31,25 @@ const checkTransactions = async () => {
           newStatus = "gagal";
         }
 
-        const vaNumber = response.va_numbers?.[0]?.va_number || null;
-        const bank = response.va_numbers?.[0]?.bank || null;
+        let vaNumber = null;
+        let bank = null;
+
+        if (response.payment_type === "bank_transfer") {
+          vaNumber = response.va_numbers?.[0]?.va_number || null;
+          bank = response.va_numbers?.[0]?.bank || null;
+        } else if (response.payment_type === "echannel") {
+          vaNumber = response.bill_key || null;
+          bank = "mandiri";
+        } else if (["gopay", "qris"].includes(response.payment_type)) {
+          bank = response.payment_type;
+        }
 
         const updatedData = {
           status: newStatus,
           paymentType: response.payment_type || null,
-          transactionTime: response.transaction_time ? new Date(response.transaction_time) : null,
+          transactionTime: response.transaction_time
+            ? new Date(response.transaction_time)
+            : null,
           fraudStatus: response.fraud_status || null,
           vaNumber,
           bank,
@@ -65,11 +77,9 @@ const checkTransactions = async () => {
   }
 };
 
-// ✅ Tambahkan fungsi start
 function start() {
   console.log("🟢 Midtrans polling dimulai setiap 1 menit...");
   cron.schedule("* * * * *", checkTransactions);
 }
 
-// ✅ Ekspor fungsi start
 module.exports = { start };

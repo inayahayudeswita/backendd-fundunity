@@ -9,11 +9,10 @@ const snap = new midtransClient.Snap({
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
 
-// ✅ 1. Create Transaction (Snap popup)
+// ✅ 1. Create Transaction (Snap)
 exports.createTransaction = async (req, res) => {
   const { nama, email, amount, notes } = req.body;
 
-  // Validasi input
   if (!nama || !email || !amount || !notes) {
     return res.status(400).json({
       error: "Missing required fields: nama, email, amount, notes",
@@ -21,39 +20,35 @@ exports.createTransaction = async (req, res) => {
   }
 
   const orderId = `order-${Date.now()}`;
-const parameter = {
-  transaction_details: {
-    order_id: orderId,
-    gross_amount: amount,
-  },
-  customer_details: {
-    first_name: nama,
-    email,
-  },
-  credit_card: {
-    secure: true,
-  },
-  item_details: [
-    {
-      id: "donasi",
-      name: "Donasi",
-      quantity: 1,
-      price: amount,
-    },
-  ],
-  enabled_payments: ["gopay", "bank_transfer", "qris"],
-  notification_url: process.env.MIDTRANS_NOTIFICATION_URL,
-  callbacks: {
-    finish: "https://landing-page-fundunity.vercel.app/thankyou",
-  },
-};
 
+  const parameter = {
+    transaction_details: {
+      order_id: orderId,
+      gross_amount: amount,
+    },
+    customer_details: {
+      first_name: nama,
+      email,
+    },
+    credit_card: { secure: true },
+    item_details: [
+      {
+        id: "donasi",
+        name: "Donasi",
+        quantity: 1,
+        price: amount,
+      },
+    ],
+    enabled_payments: ["gopay", "bank_transfer", "qris"],
+    notification_url: process.env.MIDTRANS_NOTIFICATION_URL,
+    callbacks: {
+      finish: "https://landing-page-fundunity.vercel.app/thankyou",
+    },
+  };
 
   try {
-    // 🔁 Buat token transaksi Snap
     const midtransRes = await snap.createTransaction(parameter);
 
-    // 💾 Simpan ke DB (status awal: pending)
     await prisma.transaction.create({
       data: {
         orderId,
@@ -65,10 +60,9 @@ const parameter = {
       },
     });
 
-    // ✅ Kirim token ke FE
     res.status(201).json({
       snapToken: midtransRes.token,
-      redirectUrl: midtransRes.redirect_url, // opsional kalau mau tampilkan info tambahan
+      redirectUrl: midtransRes.redirect_url,
       message: "Transaction created successfully",
     });
   } catch (error) {
@@ -107,11 +101,11 @@ exports.handleNotification = async (req, res) => {
       payment_type,
       transaction_time,
       va_numbers,
+      bill_key,
     } = data;
 
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
 
-    // 🔐 Cek Signature
     const expectedSignature = crypto
       .createHash("sha512")
       .update(order_id + status_code + gross_amount + serverKey)
@@ -122,7 +116,6 @@ exports.handleNotification = async (req, res) => {
       return res.status(403).send("Invalid signature");
     }
 
-    // 🔍 Cari transaksi
     const existing = await prisma.transaction.findUnique({
       where: { orderId: order_id },
     });
@@ -132,7 +125,6 @@ exports.handleNotification = async (req, res) => {
       return res.status(404).send("Transaction not found");
     }
 
-    // 🔁 Tentukan status baru
     let newStatus = "pending";
     switch (transaction_status) {
       case "capture":
@@ -147,17 +139,24 @@ exports.handleNotification = async (req, res) => {
         newStatus = "gagal";
         break;
       case "pending":
-        newStatus = "pending";
-        break;
       default:
         newStatus = "pending";
     }
 
-    // 🔢 VA & bank (jika ada)
-    const vaNumber = va_numbers?.[0]?.va_number || null;
-    const bank = va_numbers?.[0]?.bank || null;
+    // VA number handling for bank_transfer or echannel
+    let vaNumber = null;
+    let bank = null;
 
-    // ✅ Update DB
+    if (payment_type === "bank_transfer") {
+      vaNumber = va_numbers?.[0]?.va_number || null;
+      bank = va_numbers?.[0]?.bank || null;
+    } else if (payment_type === "echannel") {
+      vaNumber = bill_key || null;
+      bank = "mandiri";
+    } else if (["gopay", "qris"].includes(payment_type)) {
+      bank = payment_type;
+    }
+
     await prisma.transaction.update({
       where: { orderId: order_id },
       data: {
