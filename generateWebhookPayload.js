@@ -2,7 +2,7 @@ const crypto = require("crypto");
 const axios = require("axios");
 
 // 🚨 Ganti dengan serverKey Midtrans kamu (gunakan dari env kalau bisa)
-const serverKey = "SB-Mid-server-_UnhA5sDl77J0FYIgwKrmONQ";
+const serverKey = process.env.MIDTRANS_SERVER_KEY;
 
 // 🚨 Ganti ini dengan orderId yang sudah ada di database
 const orderId = "order-1685000000000";
