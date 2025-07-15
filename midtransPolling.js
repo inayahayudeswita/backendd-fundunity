@@ -8,15 +8,20 @@ const snap = new midtransClient.Snap({
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const checkTransactions = async () => {
-  console.log("⏰ Cek status transaksi (cron jalan)");
+  console.log("⏰ Mulai cek status transaksi pending...");
 
   try {
     const pendingTransactions = await prisma.transaction.findMany({
       where: { status: "pending" },
     });
+
+    if (!pendingTransactions.length) {
+      console.log("✅ Tidak ada transaksi pending");
+      return;
+    }
 
     for (const trx of pendingTransactions) {
       try {
@@ -65,21 +70,30 @@ const checkTransactions = async () => {
             data: updatedData,
           });
           console.log(`✅ Updated transaction ${trx.orderId} to ${newStatus}`);
+        } else {
+          console.log(`ℹ️ No update needed for ${trx.orderId}`);
         }
 
         await delay(500);
       } catch (err) {
-        console.error(`❌ Gagal update transaksi ${trx.orderId}:`, err.message);
+        console.error(`❌ Error checking ${trx.orderId}:`, err.message);
       }
     }
   } catch (error) {
     console.error("❌ Error saat fetch transaksi pending:", error.message);
+    throw error; // lempar ke caller (biar bisa di-handle kalau dipanggil dari route)
   }
 };
 
 function start() {
   console.log("🟢 Midtrans polling dimulai setiap 1 menit...");
-  cron.schedule("* * * * *", checkTransactions);
+  cron.schedule("* * * * *", async () => {
+    try {
+      await checkTransactions();
+    } catch (err) {
+      console.error("❌ Error in scheduled checkTransactions:", err.message);
+    }
+  });
 }
 
-module.exports = { start };
+module.exports = { start, checkTransactions };
