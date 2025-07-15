@@ -164,3 +164,16 @@ exports.handleNotification = async (req, res) => {
     res.status(500).send("Internal Server Error");
   }
 };
+const { checkTransactions } = require("../../midtransPolling");
+
+// ✅ Handler untuk EasyCron call
+exports.checkStatus = async (req, res) => {
+  try {
+    await checkTransactions();
+    res.status(200).send("✅ Transaction status checked & updated");
+  } catch (error) {
+    console.error("❌ Failed to check status:", error);
+    res.status(500).send("Internal Server Error");
+  }
+};
+

@@ -1,15 +1,12 @@
 const express = require("express");
 const cors = require("cors");
-const bodyParser = require("body-parser");
 
 const transactionController = require("./controllers/contentController/transactionController");
-const authController = require("./controllers/authController/login"); // ✅ Import authController
+const authController = require("./controllers/authController/login");
 const aboutusRoutes = require("./routes/aboutusRoutes");
 const imagesliderRoutes = require("./routes/imagesliderRoutes");
 const programRoutes = require("./routes/programRoutes");
 const ourpartnerRoutes = require("./routes/ourpartnerRoutes");
-
-const midtransPolling = require("./midtransPolling");
 const { connectDB } = require("./config/db");
 
 const app = express();
@@ -23,7 +20,7 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin) return callback(null, true); // Allow Postman or curl
+    if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) {
       return callback(null, origin);
     } else {
@@ -50,13 +47,16 @@ app.get("/", (req, res) => {
 app.post("/v1/content/login", authController.loginUser);
 
 // ✅ Transaction routes
-// ✅ Webhook Notification (Midtrans) route
+app.post("/v1/content/transaction", transactionController.createTransaction);
+app.get("/v1/content/transaction", transactionController.getTransactions);
+
+// ✅ Webhook Notification (Midtrans)
 app.post(
   "/v1/content/transaction/notification",
   express.raw({ type: "application/json" }),
   (req, res, next) => {
     try {
-      req.body = JSON.parse(req.body.toString()); // 💥 Convert raw buffer ke JSON
+      req.body = JSON.parse(req.body.toString());
       next();
     } catch (err) {
       console.error("❌ Failed to parse webhook body:", err);
@@ -66,14 +66,27 @@ app.post(
   transactionController.handleNotification
 );
 
+// ✅ Transaction Check Status (for EasyCron)
+app.get("/v1/content/transaction/check-status", transactionController.checkStatus);
 
-// ✅ Start server
+// ❌ 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: "Not Found" });
+});
+
+// ❌ Error handler
+app.use((err, req, res, next) => {
+  console.error("Unhandled error:", err.message);
+  if (err.message === "Not allowed by CORS") {
+    return res.status(403).json({ error: "CORS policy: Access denied" });
+  }
+  res.status(500).json({ error: "Internal Server Error" });
+});
+
 const startServer = async () => {
   try {
     await connectDB();
     console.log("✅ Database connected");
-
-    midtransPolling.start();
 
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
