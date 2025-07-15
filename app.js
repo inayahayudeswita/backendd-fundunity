@@ -50,27 +50,22 @@ app.get("/", (req, res) => {
 app.post("/v1/content/login", authController.loginUser);
 
 // ✅ Transaction routes
-app.post("/v1/content/transaction", transactionController.createTransaction);
-app.get("/v1/content/transaction", transactionController.getTransactions);
+// ✅ Webhook Notification (Midtrans) route
 app.post(
   "/v1/content/transaction/notification",
-  bodyParser.raw({ type: "application/json" }),
+  express.raw({ type: "application/json" }),
+  (req, res, next) => {
+    try {
+      req.body = JSON.parse(req.body.toString()); // 💥 Convert raw buffer ke JSON
+      next();
+    } catch (err) {
+      console.error("❌ Failed to parse webhook body:", err);
+      res.status(400).send("Invalid JSON");
+    }
+  },
   transactionController.handleNotification
 );
 
-// ❌ 404 handler (jika route tidak ditemukan)
-app.use((req, res, next) => {
-  res.status(404).json({ error: "Not Found" });
-});
-
-// ❌ Error handler
-app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err.message);
-  if (err.message === "Not allowed by CORS") {
-    return res.status(403).json({ error: "CORS policy: Access denied" });
-  }
-  res.status(500).json({ error: "Internal Server Error" });
-});
 
 // ✅ Start server
 const startServer = async () => {

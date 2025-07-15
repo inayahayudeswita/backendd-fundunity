@@ -83,13 +83,12 @@ exports.getTransactions = async (req, res) => {
   }
 };
 
-// ✅ 3. Handle Midtrans Webhook Notification
+// ✅ 3. Handle Midtrans Webhook Notification (FIXED)
 exports.handleNotification = async (req, res) => {
   try {
-    const rawBody = req.body.toString("utf8");
-    console.log("📩 Notification received:", rawBody);
+    console.log("📩 Notification received:", req.body);
 
-    const data = JSON.parse(rawBody);
+    const data = req.body;
     const {
       order_id,
       status_code,
@@ -104,7 +103,6 @@ exports.handleNotification = async (req, res) => {
     } = data;
 
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
-
     const expectedSignature = crypto
       .createHash("sha512")
       .update(order_id + status_code + gross_amount + serverKey)
@@ -120,7 +118,7 @@ exports.handleNotification = async (req, res) => {
     });
 
     if (!existing) {
-      console.warn("⚠️ Transaction not found in DB:", order_id);
+      console.warn("⚠️ Transaction not found:", order_id);
       return res.status(404).send("Transaction not found");
     }
 
@@ -137,23 +135,6 @@ exports.handleNotification = async (req, res) => {
       case "expire":
         newStatus = "gagal";
         break;
-      case "pending":
-      default:
-        newStatus = "pending";
-    }
-
-    // VA number handling for bank_transfer or echannel
-    let vaNumber = null;
-    let bank = null;
-
-    if (payment_type === "bank_transfer") {
-      vaNumber = va_numbers?.[0]?.va_number || null;
-      bank = va_numbers?.[0]?.bank || null;
-    } else if (payment_type === "echannel") {
-      vaNumber = bill_key || null;
-      bank = "mandiri";
-    } else if (["gopay", "qris"].includes(payment_type)) {
-      bank = payment_type;
     }
 
     await prisma.transaction.update({
@@ -163,15 +144,23 @@ exports.handleNotification = async (req, res) => {
         paymentType: payment_type || null,
         transactionTime: transaction_time ? new Date(transaction_time) : null,
         fraudStatus: fraud_status || null,
-        vaNumber,
-        bank,
+        vaNumber:
+          payment_type === "bank_transfer"
+            ? va_numbers?.[0]?.va_number || null
+            : bill_key || null,
+        bank:
+          payment_type === "bank_transfer"
+            ? va_numbers?.[0]?.bank || null
+            : payment_type === "echannel"
+            ? "mandiri"
+            : payment_type,
       },
     });
 
-    console.log(`✅ Updated transaction ${order_id} to status: ${newStatus}`);
+    console.log(`✅ Updated transaction ${order_id} ➔ ${newStatus}`);
     res.status(200).send("OK");
-  } catch (error) {
-    console.error("❌ Webhook handler error:", error);
+  } catch (err) {
+    console.error("❌ Webhook error:", err);
     res.status(500).send("Internal Server Error");
   }
 };
