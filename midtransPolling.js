@@ -8,6 +8,12 @@ const snap = new midtransClient.Snap({
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
 
+// ✅ Helper: Prioritas status
+const priority = { pending: 1, gagal: 2, berhasil: 3 };
+function shouldUpdateStatus(current, next) {
+  return priority[next] > priority[current];
+}
+
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const checkTransactions = async () => {
@@ -29,10 +35,13 @@ const checkTransactions = async () => {
 
         let newStatus = "pending";
         if (response.transaction_status === "capture") {
-          newStatus = response.fraud_status === "challenge" ? "gagal" : "berhasil";
+          newStatus =
+            response.fraud_status === "challenge" ? "gagal" : "berhasil";
         } else if (response.transaction_status === "settlement") {
           newStatus = "berhasil";
-        } else if (["cancel", "deny", "expire"].includes(response.transaction_status)) {
+        } else if (
+          ["cancel", "deny", "expire"].includes(response.transaction_status)
+        ) {
           newStatus = "gagal";
         }
 
@@ -64,14 +73,20 @@ const checkTransactions = async () => {
         const hasMissingInfo =
           !trx.paymentType || !trx.transactionTime || !trx.vaNumber || !trx.bank;
 
-        if (isStatusChanged || hasMissingInfo) {
+        // ✅ hanya update kalau status naik, atau info masih kosong
+        if (
+          (isStatusChanged && shouldUpdateStatus(trx.status, newStatus)) ||
+          hasMissingInfo
+        ) {
           await prisma.transaction.update({
             where: { orderId: trx.orderId },
             data: updatedData,
           });
           console.log(`✅ Updated transaction ${trx.orderId} to ${newStatus}`);
         } else {
-          console.log(`ℹ️ No update needed for ${trx.orderId}`);
+          console.log(
+            `⚠️ Ignored downgrade or no update needed for ${trx.orderId}`
+          );
         }
 
         await delay(500);
@@ -81,7 +96,7 @@ const checkTransactions = async () => {
     }
   } catch (error) {
     console.error("❌ Error saat fetch transaksi pending:", error.message);
-    throw error; // lempar ke caller (biar bisa di-handle kalau dipanggil dari route)
+    throw error;
   }
 };
 

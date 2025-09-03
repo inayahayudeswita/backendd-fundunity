@@ -9,7 +9,14 @@ const snap = new midtransClient.Snap({
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
 
-// ✅ 1. Create Transaction (Snap)
+// ✅ Helper: Prioritas status (pending < gagal < berhasil)
+const priority = { pending: 1, gagal: 2, berhasil: 3 };
+
+function shouldUpdateStatus(current, next) {
+  return priority[next] > priority[current];
+}
+
+// ✅ 1. Create Transaction
 exports.createTransaction = async (req, res) => {
   const { nama, email, amount, notes } = req.body;
 
@@ -83,7 +90,7 @@ exports.getTransactions = async (req, res) => {
   }
 };
 
-// ✅ 3. Handle Midtrans Webhook Notification (FIXED)
+// ✅ 3. Handle Midtrans Webhook Notification
 exports.handleNotification = async (req, res) => {
   try {
     console.log("📩 Notification received:", req.body);
@@ -102,10 +109,11 @@ exports.handleNotification = async (req, res) => {
       bill_key,
     } = data;
 
+    // 🔑 Signature check
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
     const expectedSignature = crypto
       .createHash("sha512")
-      .update(order_id + status_code + gross_amount + serverKey)
+      .update(order_id + status_code + String(Number(gross_amount)) + serverKey)
       .digest("hex");
 
     if (signature_key !== expectedSignature) {
@@ -122,6 +130,7 @@ exports.handleNotification = async (req, res) => {
       return res.status(404).send("Transaction not found");
     }
 
+    // Tentukan status baru
     let newStatus = "pending";
     switch (transaction_status) {
       case "capture":
@@ -137,35 +146,42 @@ exports.handleNotification = async (req, res) => {
         break;
     }
 
-    await prisma.transaction.update({
-      where: { orderId: order_id },
-      data: {
-        status: newStatus,
-        paymentType: payment_type || null,
-        transactionTime: transaction_time ? new Date(transaction_time) : null,
-        fraudStatus: fraud_status || null,
-        vaNumber:
-          payment_type === "bank_transfer"
-            ? va_numbers?.[0]?.va_number || null
-            : bill_key || null,
-        bank:
-          payment_type === "bank_transfer"
-            ? va_numbers?.[0]?.bank || null
-            : payment_type === "echannel"
-            ? "mandiri"
-            : payment_type,
-      },
-    });
+    // ✅ Cegah downgrade status
+    if (shouldUpdateStatus(existing.status, newStatus)) {
+      await prisma.transaction.update({
+        where: { orderId: order_id },
+        data: {
+          status: newStatus,
+          paymentType: payment_type || null,
+          transactionTime: transaction_time ? new Date(transaction_time) : null,
+          fraudStatus: fraud_status || null,
+          vaNumber:
+            payment_type === "bank_transfer"
+              ? va_numbers?.[0]?.va_number || null
+              : bill_key || null,
+          bank:
+            payment_type === "bank_transfer"
+              ? va_numbers?.[0]?.bank || null
+              : payment_type === "echannel"
+              ? "mandiri"
+              : payment_type,
+        },
+      });
+      console.log(`✅ Updated transaction ${order_id} ➔ ${newStatus}`);
+    } else {
+      console.log(`⚠️ Ignored downgrade: ${existing.status} → ${newStatus}`);
+    }
 
-    console.log(`✅ Updated transaction ${order_id} ➔ ${newStatus}`);
     res.status(200).send("OK");
   } catch (err) {
     console.error("❌ Webhook error:", err);
     res.status(500).send("Internal Server Error");
   }
 };
+
 const { checkTransactions } = require("../../midtransPolling");
 
+// ✅ 4. Manual check (via EasyCron)
 exports.checkStatus = async (req, res) => {
   try {
     await checkTransactions();
