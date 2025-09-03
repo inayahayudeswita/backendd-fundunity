@@ -18,7 +18,7 @@ const allowedOrigins = [
   "https://landing-page-fundunity.vercel.app",
 ];
 
-// ✅ Middleware CORS
+// ✅ CORS
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -32,25 +32,25 @@ app.use(
   })
 );
 
-// ✅ Body parsers
-app.use(express.json());
+// ✅ Parsers
+app.use(express.json({ type: "*/*" }));
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Register route modular files
+// ✅ Modular routes
 app.use("/v1/content/aboutus", aboutusRoutes);
 app.use("/v1/content/imageslider", imagesliderRoutes);
 app.use("/v1/content/program", programRoutes);
 app.use("/v1/content/ourpartner", ourpartnerRoutes);
 
-// ✅ Base API route
+// ✅ Base route
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to DonateBank API" });
 });
 
-// ✅ LOGIN route
+// ✅ Login route
 app.post("/v1/content/login", authController.loginUser);
 
-// ✅ Transaction routes
+// ✅ Transactions
 app.post("/v1/content/transaction", transactionController.createTransaction);
 app.get("/v1/content/transaction", transactionController.getTransactions);
 
@@ -60,7 +60,7 @@ app.post(
   transactionController.handleNotification
 );
 
-// ✅ Transaction Check Status (for EasyCron / manual check)
+// ✅ Transaction Check Status
 app.get("/v1/content/transaction/check-status", transactionController.checkStatus);
 
 // ❌ 404 handler

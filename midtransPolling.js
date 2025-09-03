@@ -3,16 +3,10 @@ const midtransClient = require("midtrans-client");
 const { prisma } = require("./config/db");
 
 const snap = new midtransClient.Snap({
-  isProduction: true,
+  isProduction: true, // ⬅️ ubah ke false kalau mau Sandbox
   serverKey: process.env.MIDTRANS_SERVER_KEY,
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
-
-// ✅ Helper: Prioritas status
-const priority = { pending: 1, gagal: 2, berhasil: 3 };
-function shouldUpdateStatus(current, next) {
-  return priority[next] > priority[current];
-}
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -39,9 +33,7 @@ const checkTransactions = async () => {
             response.fraud_status === "challenge" ? "gagal" : "berhasil";
         } else if (response.transaction_status === "settlement") {
           newStatus = "berhasil";
-        } else if (
-          ["cancel", "deny", "expire"].includes(response.transaction_status)
-        ) {
+        } else if (["cancel", "deny", "expire"].includes(response.transaction_status)) {
           newStatus = "gagal";
         }
 
@@ -73,20 +65,14 @@ const checkTransactions = async () => {
         const hasMissingInfo =
           !trx.paymentType || !trx.transactionTime || !trx.vaNumber || !trx.bank;
 
-        // ✅ hanya update kalau status naik, atau info masih kosong
-        if (
-          (isStatusChanged && shouldUpdateStatus(trx.status, newStatus)) ||
-          hasMissingInfo
-        ) {
+        if (isStatusChanged || hasMissingInfo) {
           await prisma.transaction.update({
             where: { orderId: trx.orderId },
             data: updatedData,
           });
-          console.log(`✅ Updated transaction ${trx.orderId} to ${newStatus}`);
+          console.log(`✅ Updated transaction ${trx.orderId} ➔ ${newStatus}`);
         } else {
-          console.log(
-            `⚠️ Ignored downgrade or no update needed for ${trx.orderId}`
-          );
+          console.log(`ℹ️ No update needed for ${trx.orderId}`);
         }
 
         await delay(500);

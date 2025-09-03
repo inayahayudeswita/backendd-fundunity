@@ -4,17 +4,10 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 const snap = new midtransClient.Snap({
-  isProduction: true,
+  isProduction: true, // ⬅️ ubah ke false kalau mau Sandbox
   serverKey: process.env.MIDTRANS_SERVER_KEY,
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
-
-// ✅ Helper: Prioritas status (pending < gagal < berhasil)
-const priority = { pending: 1, gagal: 2, berhasil: 3 };
-
-function shouldUpdateStatus(current, next) {
-  return priority[next] > priority[current];
-}
 
 // ✅ 1. Create Transaction
 exports.createTransaction = async (req, res) => {
@@ -90,10 +83,13 @@ exports.getTransactions = async (req, res) => {
   }
 };
 
-// ✅ 3. Handle Midtrans Webhook Notification
+// ✅ 3. Webhook Notification (Vercel-safe)
 exports.handleNotification = async (req, res) => {
   try {
-    console.log("📩 Notification received:", req.body);
+    console.log("📩 Webhook masuk dari Midtrans:", req.body);
+
+    // ✅ balas dulu ke Midtrans biar gak retry
+    res.status(200).json({ received: true });
 
     const data = req.body;
     const {
@@ -109,28 +105,29 @@ exports.handleNotification = async (req, res) => {
       bill_key,
     } = data;
 
-    // 🔑 Signature check
+    // 🔑 Validasi signature
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
     const expectedSignature = crypto
       .createHash("sha512")
-      .update(order_id + status_code + String(Number(gross_amount)) + serverKey)
+      .update(order_id + status_code + gross_amount + serverKey)
       .digest("hex");
 
     if (signature_key !== expectedSignature) {
-      console.warn("⚠️ Invalid signature");
-      return res.status(403).send("Invalid signature");
+      console.warn("⚠️ Invalid signature Midtrans");
+      return;
     }
 
+    // 🔎 Cari transaksi
     const existing = await prisma.transaction.findUnique({
       where: { orderId: order_id },
     });
 
     if (!existing) {
-      console.warn("⚠️ Transaction not found:", order_id);
-      return res.status(404).send("Transaction not found");
+      console.warn("⚠️ Transaction not found in DB:", order_id);
+      return;
     }
 
-    // Tentukan status baru
+    // 🎯 Tentukan status
     let newStatus = "pending";
     switch (transaction_status) {
       case "capture":
@@ -146,42 +143,35 @@ exports.handleNotification = async (req, res) => {
         break;
     }
 
-    // ✅ Cegah downgrade status
-    if (shouldUpdateStatus(existing.status, newStatus)) {
-      await prisma.transaction.update({
-        where: { orderId: order_id },
-        data: {
-          status: newStatus,
-          paymentType: payment_type || null,
-          transactionTime: transaction_time ? new Date(transaction_time) : null,
-          fraudStatus: fraud_status || null,
-          vaNumber:
-            payment_type === "bank_transfer"
-              ? va_numbers?.[0]?.va_number || null
-              : bill_key || null,
-          bank:
-            payment_type === "bank_transfer"
-              ? va_numbers?.[0]?.bank || null
-              : payment_type === "echannel"
-              ? "mandiri"
-              : payment_type,
-        },
-      });
-      console.log(`✅ Updated transaction ${order_id} ➔ ${newStatus}`);
-    } else {
-      console.log(`⚠️ Ignored downgrade: ${existing.status} → ${newStatus}`);
-    }
+    // 📝 Update DB
+    await prisma.transaction.update({
+      where: { orderId: order_id },
+      data: {
+        status: newStatus,
+        paymentType: payment_type || null,
+        transactionTime: transaction_time ? new Date(transaction_time) : null,
+        fraudStatus: fraud_status || null,
+        vaNumber:
+          payment_type === "bank_transfer"
+            ? va_numbers?.[0]?.va_number || null
+            : bill_key || null,
+        bank:
+          payment_type === "bank_transfer"
+            ? va_numbers?.[0]?.bank || null
+            : payment_type === "echannel"
+            ? "mandiri"
+            : payment_type,
+      },
+    });
 
-    res.status(200).send("OK");
+    console.log(`✅ Transaction ${order_id} updated ➔ ${newStatus}`);
   } catch (err) {
     console.error("❌ Webhook error:", err);
-    res.status(500).send("Internal Server Error");
   }
 };
 
 const { checkTransactions } = require("../../midtransPolling");
 
-// ✅ 4. Manual check (via EasyCron)
 exports.checkStatus = async (req, res) => {
   try {
     await checkTransactions();
