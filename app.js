@@ -15,20 +15,24 @@ const PORT = process.env.PORT || 3000;
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
-  "https://landing-page-fundunity.vercel.app"
+  "https://landing-page-fundunity.vercel.app",
 ];
 
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, origin);
-    } else {
-      return callback(new Error("Not allowed by CORS"));
-    }
-  }
-}));
+// ✅ Middleware CORS
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, origin);
+      } else {
+        return callback(new Error("Not allowed by CORS"));
+      }
+    },
+  })
+);
 
+// ✅ Body parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -50,23 +54,13 @@ app.post("/v1/content/login", authController.loginUser);
 app.post("/v1/content/transaction", transactionController.createTransaction);
 app.get("/v1/content/transaction", transactionController.getTransactions);
 
-// ✅ Webhook Notification (Midtrans)
+// ✅ Webhook Notification (Midtrans) FIX
 app.post(
   "/v1/content/transaction/notification",
-  express.raw({ type: "application/json" }),
-  (req, res, next) => {
-    try {
-      req.body = JSON.parse(req.body.toString());
-      next();
-    } catch (err) {
-      console.error("❌ Failed to parse webhook body:", err);
-      res.status(400).send("Invalid JSON");
-    }
-  },
   transactionController.handleNotification
 );
 
-// ✅ Transaction Check Status (for EasyCron)
+// ✅ Transaction Check Status (for EasyCron / manual check)
 app.get("/v1/content/transaction/check-status", transactionController.checkStatus);
 
 // ❌ 404 handler
