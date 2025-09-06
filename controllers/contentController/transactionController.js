@@ -4,7 +4,7 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
 const snap = new midtransClient.Snap({
-  isProduction: true, // ⬅️ ubah ke false kalau mau Sandbox
+  isProduction: true, // ✅ Production
   serverKey: process.env.MIDTRANS_SERVER_KEY,
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
@@ -39,7 +39,8 @@ exports.createTransaction = async (req, res) => {
         price: amount,
       },
     ],
-    notification_url: process.env.MIDTRANS_NOTIFICATION_URL,
+    // ✅ URL webhook sesuai dengan app.js (production)
+    notification_url: "https://backendd-fundunity.onrender.com/api/midtrans/notification",
     callbacks: {
       finish: "https://landing-page-fundunity.vercel.app/thankyou",
     },
@@ -83,15 +84,15 @@ exports.getTransactions = async (req, res) => {
   }
 };
 
-// ✅ 3. Webhook Notification (Vercel-safe)
+// ✅ 3. Webhook Notification (Production-safe)
 exports.handleNotification = async (req, res) => {
   try {
-    console.log("📩 Webhook masuk dari Midtrans:", req.body);
+    console.log("📩 Webhook masuk dari Midtrans:", req.originalUrl);
+    console.log("📦 Body:", JSON.stringify(req.body, null, 2));
 
-    // ✅ balas dulu ke Midtrans biar gak retry
+    // ✅ balas dulu biar Midtrans tidak retry
     res.status(200).json({ received: true });
 
-    const data = req.body;
     const {
       order_id,
       status_code,
@@ -103,7 +104,7 @@ exports.handleNotification = async (req, res) => {
       transaction_time,
       va_numbers,
       bill_key,
-    } = data;
+    } = req.body;
 
     // 🔑 Validasi signature
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
@@ -113,12 +114,12 @@ exports.handleNotification = async (req, res) => {
       .digest("hex");
 
     if (signature_key !== expectedSignature) {
-      console.warn("⚠️ Invalid signature Midtrans");
+      console.warn("⚠️ Invalid signature Midtrans untuk:", order_id);
       return;
     }
 
-    // 🔎 Cari transaksi
-    const existing = await prisma.transaction.findUnique({
+    // 🔎 Cari transaksi di DB
+    const existing = await prisma.transaction.findFirst({
       where: { orderId: order_id },
     });
 
@@ -143,7 +144,7 @@ exports.handleNotification = async (req, res) => {
         break;
     }
 
-    // 📝 Update DB
+    // 📝 Update transaksi
     await prisma.transaction.update({
       where: { orderId: order_id },
       data: {
@@ -170,8 +171,8 @@ exports.handleNotification = async (req, res) => {
   }
 };
 
+// ✅ 4. Manual check (polling opsional)
 const { checkTransactions } = require("../../midtransPolling");
-
 exports.checkStatus = async (req, res) => {
   try {
     await checkTransactions();
