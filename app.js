@@ -41,16 +41,16 @@ app.get("/", (req, res) => {
   res.json({ message: "Welcome to FundUnity API" });
 });
 
-// ✅ Content routes
-app.use("/api/v1/content/aboutus", aboutusRoutes);
-app.use("/api/v1/content/imageslider", imagesliderRoutes);
-app.use("/api/v1/content/program", programRoutes);
-app.use("/api/v1/content/ourpartner", ourpartnerRoutes);
+// ✅ Content routes (NO `/api` prefix)
+app.use("/v1/content/aboutus", aboutusRoutes);
+app.use("/v1/content/imageslider", imagesliderRoutes);
+app.use("/v1/content/program", programRoutes);
+app.use("/v1/content/ourpartner", ourpartnerRoutes);
 
-// ✅ Auth
-app.post("/api/v1/content/login", authController.loginUser);
+// ✅ Auth (NO `/api` prefix)
+app.post("/v1/content/login", authController.loginUser);
 
-// ✅ Transactions
+// ✅ Transactions (KEEP `/api`)
 app.post("/api/v1/content/transaction", transactionController.createTransaction);
 app.get("/api/v1/content/transaction", transactionController.getTransactions);
 
