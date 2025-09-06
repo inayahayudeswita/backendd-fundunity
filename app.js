@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const { connectDB } = require("./config/db");
 
 const transactionController = require("./controllers/contentController/transactionController");
 const authController = require("./controllers/authController/login");
@@ -7,11 +8,11 @@ const aboutusRoutes = require("./routes/aboutusRoutes");
 const imagesliderRoutes = require("./routes/imagesliderRoutes");
 const programRoutes = require("./routes/programRoutes");
 const ourpartnerRoutes = require("./routes/ourpartnerRoutes");
-const { connectDB } = require("./config/db");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
+// ✅ Allowed origins
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
@@ -19,56 +20,58 @@ const allowedOrigins = [
   "https://fe-admin-dashboard.vercel.app",
 ];
 
+// ✅ CORS middleware
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
+      if (!origin) return callback(null, true); // allow Postman / curl / server-side
       if (allowedOrigins.includes(origin)) {
-        return callback(null, origin);
+        return callback(null, true);
       } else {
-        return callback(new Error("Not allowed by CORS"));
+        console.warn("❌ CORS blocked for origin:", origin);
+        return callback(null, false); // block silently
       }
     },
+    credentials: true,
   })
 );
 
-// ✅ Parser body JSON
+// ✅ Body parser
 app.use(express.json({ type: "*/*" }));
 app.use(express.urlencoded({ extended: true }));
 
 // ✅ Root check
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to FundUnity API" });
+  res.json({ message: "Welcome to FundUnity API (Render)" });
 });
 
-// ✅ Content routes (NO `/api` prefix)
+// ✅ Content routes
 app.use("/v1/content/aboutus", aboutusRoutes);
 app.use("/v1/content/imageslider", imagesliderRoutes);
 app.use("/v1/content/program", programRoutes);
 app.use("/v1/content/ourpartner", ourpartnerRoutes);
 
-// ✅ Auth (NO `/api` prefix)
+// ✅ Auth
 app.post("/v1/content/login", authController.loginUser);
 
-// ✅ Transactions (KEEP `/api`)
-app.post("/api/v1/content/transaction", transactionController.createTransaction);
-app.get("/api/v1/content/transaction", transactionController.getTransactions);
-
-// ✅ Midtrans Notification (webhook)
-app.post("/api/midtrans/notification", transactionController.handleNotification);
-
-// ✅ Manual check (polling opsional)
+// ✅ Transactions
+app.post("/v1/content/transaction", transactionController.createTransaction);
+app.get("/v1/content/transaction", transactionController.getTransactions);
+app.post(
+  "/v1/content/transaction/notification",
+  transactionController.handleNotification
+);
 app.get(
-  "/api/v1/content/transaction/check-status",
+  "/v1/content/transaction/check-status",
   transactionController.checkStatus
 );
 
-// ❌ 404 Handler
+// ❌ 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
-// ❌ Error Handler
+// ❌ Error handler
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err.message);
   if (err.message === "Not allowed by CORS") {
@@ -84,7 +87,7 @@ const startServer = async () => {
     console.log("✅ Database connected");
 
     app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
+      console.log(`🚀 API running on http://localhost:${PORT}`);
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error);
