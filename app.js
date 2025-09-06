@@ -16,7 +16,7 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "https://landing-page-fundunity.vercel.app",
-  "https://fe-admin-dashboard.vercel.app", // ✅ tambahin FE admin
+  "https://fe-admin-dashboard.vercel.app",
 ];
 
 // ✅ CORS
@@ -42,27 +42,30 @@ app.get("/", (req, res) => {
   res.json({ message: "Welcome to FundUnity API" });
 });
 
-// ✅ Group all routes under /api
+// ✅ Group all routes under /api/v1/content
 app.use("/api/v1/content/aboutus", aboutusRoutes);
 app.use("/api/v1/content/imageslider", imagesliderRoutes);
 app.use("/api/v1/content/program", programRoutes);
 app.use("/api/v1/content/ourpartner", ourpartnerRoutes);
 
-// ✅ Login route
+// ✅ Login
 app.post("/api/v1/content/login", authController.loginUser);
 
-// ✅ Transactions
+// ✅ Transaction routes
 app.post("/api/v1/content/transaction", transactionController.createTransaction);
 app.get("/api/v1/content/transaction", transactionController.getTransactions);
 
 // ✅ Midtrans Notification (Webhook)
 app.post(
-  "/api/midtrans/notification",
+  "/api/v1/content/transaction/notification",
   transactionController.handleNotification
 );
 
-// ✅ Transaction Check Status
-app.get("/api/v1/content/transaction/check-status", transactionController.checkStatus);
+// ✅ Transaction Status Check
+app.get(
+  "/api/v1/content/transaction/check-status",
+  transactionController.checkStatus
+);
 
 // ❌ 404 handler
 app.use((req, res) => {

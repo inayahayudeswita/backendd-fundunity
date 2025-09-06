@@ -3,13 +3,16 @@ const midtransClient = require("midtrans-client");
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
+// ✅ Midtrans Snap client (Production)
 const snap = new midtransClient.Snap({
-  isProduction: true, // ✅ Production
+  isProduction: true, // set true untuk Production Midtrans
   serverKey: process.env.MIDTRANS_SERVER_KEY,
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
 
-// ✅ 1. Create Transaction
+/**
+ * 1️⃣ Create Transaction
+ */
 exports.createTransaction = async (req, res) => {
   const { nama, email, amount, notes } = req.body;
 
@@ -39,8 +42,9 @@ exports.createTransaction = async (req, res) => {
         price: amount,
       },
     ],
-    // ✅ URL webhook sesuai dengan app.js (production)
-    notification_url: "https://backendd-fundunity.onrender.com/api/midtrans/notification",
+    // ✅ URL webhook harus sama dengan route di app.js
+    notification_url:
+      "https://backendd-fundunity.onrender.com/api/v1/content/transaction/notification",
     callbacks: {
       finish: "https://landing-page-fundunity.vercel.app/thankyou",
     },
@@ -49,6 +53,7 @@ exports.createTransaction = async (req, res) => {
   try {
     const midtransRes = await snap.createTransaction(parameter);
 
+    // simpan transaksi sebagai pending
     await prisma.transaction.create({
       data: {
         orderId,
@@ -71,7 +76,9 @@ exports.createTransaction = async (req, res) => {
   }
 };
 
-// ✅ 2. Get All Transactions
+/**
+ * 2️⃣ Get All Transactions
+ */
 exports.getTransactions = async (req, res) => {
   try {
     const transactions = await prisma.transaction.findMany({
@@ -84,13 +91,15 @@ exports.getTransactions = async (req, res) => {
   }
 };
 
-// ✅ 3. Webhook Notification (Production-safe)
+/**
+ * 3️⃣ Handle Midtrans Notification (Webhook)
+ */
 exports.handleNotification = async (req, res) => {
   try {
-    console.log("📩 Webhook masuk dari Midtrans:", req.originalUrl);
+    console.log("📩 Webhook diterima di:", req.originalUrl);
     console.log("📦 Body:", JSON.stringify(req.body, null, 2));
 
-    // ✅ balas dulu biar Midtrans tidak retry
+    // ✅ balas dulu supaya Midtrans tidak retry
     res.status(200).json({ received: true });
 
     const {
@@ -106,7 +115,7 @@ exports.handleNotification = async (req, res) => {
       bill_key,
     } = req.body;
 
-    // 🔑 Validasi signature
+    // 🔑 Validasi signature Midtrans
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
     const expectedSignature = crypto
       .createHash("sha512")
@@ -114,12 +123,12 @@ exports.handleNotification = async (req, res) => {
       .digest("hex");
 
     if (signature_key !== expectedSignature) {
-      console.warn("⚠️ Invalid signature Midtrans untuk:", order_id);
+      console.warn("⚠️ Invalid signature Midtrans untuk order:", order_id);
       return;
     }
 
     // 🔎 Cari transaksi di DB
-    const existing = await prisma.transaction.findFirst({
+    const existing = await prisma.transaction.findUnique({
       where: { orderId: order_id },
     });
 
@@ -128,7 +137,7 @@ exports.handleNotification = async (req, res) => {
       return;
     }
 
-    // 🎯 Tentukan status
+    // 🎯 Tentukan status baru
     let newStatus = "pending";
     switch (transaction_status) {
       case "capture":
@@ -144,7 +153,7 @@ exports.handleNotification = async (req, res) => {
         break;
     }
 
-    // 📝 Update transaksi
+    // 📝 Update transaksi di DB
     await prisma.transaction.update({
       where: { orderId: order_id },
       data: {
@@ -171,8 +180,11 @@ exports.handleNotification = async (req, res) => {
   }
 };
 
-// ✅ 4. Manual check (polling opsional)
+/**
+ * 4️⃣ Manual check (opsional, pakai polling)
+ */
 const { checkTransactions } = require("../../midtransPolling");
+
 exports.checkStatus = async (req, res) => {
   try {
     await checkTransactions();
