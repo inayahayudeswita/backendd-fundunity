@@ -4,11 +4,12 @@ const imagekit = require("../config/imagekit");
 class ImageKitService {
   async uploadFile(file, fileName) {
     try {
-      const response = await imagekit.upload({
-        file: file.buffer.toString("base64"),
-        fileName: fileName,
-        folder: "/programs",
-      });
+     const response = await imagekit.upload({
+  file: file.buffer, // langsung kirim buffer
+  fileName,
+  folder: "/programs",
+});
+
 
       return {
         url: response.url,
