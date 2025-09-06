@@ -41,8 +41,9 @@ exports.createTransaction = async (req, res) => {
         price: amount,
       },
     ],
+    // ✅ Pastikan sama persis dengan app.js
     notification_url:
-      "https://backendd-fundunity.onrender.com/api/v1/content/transaction/notification",
+      "https://backendd-fundunity.onrender.com/v1/content/transaction/notification",
     callbacks: {
       finish: "https://landing-page-fundunity.vercel.app/thankyou",
     },
@@ -108,15 +109,18 @@ exports.handleNotification = async (req, res) => {
       bill_key,
     } = req.body;
 
-    // 🔑 Validasi signature Midtrans
+    // 🔑 Validasi signature Midtrans (FIXED: normalisasi gross_amount)
+    const normalizedAmount = parseInt(gross_amount).toString();
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
     const expectedSignature = crypto
       .createHash("sha512")
-      .update(order_id + status_code + gross_amount + serverKey)
+      .update(order_id + status_code + normalizedAmount + serverKey)
       .digest("hex");
 
     if (signature_key !== expectedSignature) {
       console.warn("⚠️ Invalid signature Midtrans untuk:", order_id);
+      console.warn("Expected:", expectedSignature);
+      console.warn("Got:", signature_key);
       return;
     }
 
@@ -169,6 +173,8 @@ exports.handleNotification = async (req, res) => {
       case "expire":
         newStatus = "gagal";
         break;
+      default:
+        console.log(`⚠️ Unhandled transaction_status: ${transaction_status}`);
     }
 
     await prisma.transaction.update({

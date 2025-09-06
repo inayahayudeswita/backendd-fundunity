@@ -29,7 +29,7 @@ payload.signature_key = signature_key;
 console.log("🚀 Payload siap dikirim:", payload);
 
 // 🌐 Ganti URL ini dengan alamat ngrok aktif kamu
-const webhookUrl = "https://backendd-fundunity.onrender.com/api/midtrans/notification";
+const webhookUrl = "https://backendd-fundunity.onrender.com/v1/content/transaction/notification";
 
 // Kirim request ke webhook endpoint (POST)
 axios
