@@ -19,7 +19,6 @@ const allowedOrigins = [
   "https://fe-admin-dashboard.vercel.app",
 ];
 
-// ✅ CORS
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -33,46 +32,43 @@ app.use(
   })
 );
 
-// ✅ Parsers
+// ✅ Parser body JSON
 app.use(express.json({ type: "*/*" }));
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Base route
+// ✅ Root check
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to FundUnity API" });
 });
 
-// ✅ Group all routes under /api/v1/content
+// ✅ Content routes
 app.use("/api/v1/content/aboutus", aboutusRoutes);
 app.use("/api/v1/content/imageslider", imagesliderRoutes);
 app.use("/api/v1/content/program", programRoutes);
 app.use("/api/v1/content/ourpartner", ourpartnerRoutes);
 
-// ✅ Login
+// ✅ Auth
 app.post("/api/v1/content/login", authController.loginUser);
 
-// ✅ Transaction routes
+// ✅ Transactions
 app.post("/api/v1/content/transaction", transactionController.createTransaction);
 app.get("/api/v1/content/transaction", transactionController.getTransactions);
 
-// ✅ Midtrans Notification (Webhook)
-app.post(
-  "/api/v1/content/transaction/notification",
-  transactionController.handleNotification
-);
+// ✅ Midtrans Notification (webhook)
+app.post("/api/midtrans/notification", transactionController.handleNotification);
 
-// ✅ Transaction Status Check
+// ✅ Manual check (polling opsional)
 app.get(
   "/api/v1/content/transaction/check-status",
   transactionController.checkStatus
 );
 
-// ❌ 404 handler
+// ❌ 404 Handler
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
-// ❌ Error handler
+// ❌ Error Handler
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err.message);
   if (err.message === "Not allowed by CORS") {
@@ -81,6 +77,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal Server Error" });
 });
 
+// ✅ Start server
 const startServer = async () => {
   try {
     await connectDB();
