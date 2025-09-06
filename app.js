@@ -19,18 +19,17 @@ const allowedOrigins = [
   "https://fe-admin-dashboard.vercel.app", // ✅ tambahin FE admin
 ];
 
-// ✅ CORS fix
+// ✅ CORS
 app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) {
-        return callback(null, true); // jangan return origin langsung
+        return callback(null, origin);
       } else {
         return callback(new Error("Not allowed by CORS"));
       }
     },
-    credentials: true, // ✅ biar cookie/token bisa ikut
   })
 );
 
@@ -38,32 +37,32 @@ app.use(
 app.use(express.json({ type: "*/*" }));
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Modular routes
-app.use("/v1/content/aboutus", aboutusRoutes);
-app.use("/v1/content/imageslider", imagesliderRoutes);
-app.use("/v1/content/program", programRoutes);
-app.use("/v1/content/ourpartner", ourpartnerRoutes);
-
 // ✅ Base route
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to DonateBank API" });
+  res.json({ message: "Welcome to FundUnity API" });
 });
 
-// ✅ Login route (pastikan ini ada dan kebaca)
-app.post("/v1/content/login", authController.loginUser);
+// ✅ Group all routes under /api
+app.use("/api/v1/content/aboutus", aboutusRoutes);
+app.use("/api/v1/content/imageslider", imagesliderRoutes);
+app.use("/api/v1/content/program", programRoutes);
+app.use("/api/v1/content/ourpartner", ourpartnerRoutes);
+
+// ✅ Login route
+app.post("/api/v1/content/login", authController.loginUser);
 
 // ✅ Transactions
-app.post("/v1/content/transaction", transactionController.createTransaction);
-app.get("/v1/content/transaction", transactionController.getTransactions);
+app.post("/api/v1/content/transaction", transactionController.createTransaction);
+app.get("/api/v1/content/transaction", transactionController.getTransactions);
 
-// ✅ Webhook Notification (Midtrans) FIX
+// ✅ Midtrans Notification (Webhook)
 app.post(
-  "/v1/content/transaction/notification",
+  "/api/midtrans/notification",
   transactionController.handleNotification
 );
 
 // ✅ Transaction Check Status
-app.get("/v1/content/transaction/check-status", transactionController.checkStatus);
+app.get("/api/v1/content/transaction/check-status", transactionController.checkStatus);
 
 // ❌ 404 handler
 app.use((req, res) => {
