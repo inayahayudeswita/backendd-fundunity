@@ -16,19 +16,21 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
   "https://landing-page-fundunity.vercel.app",
+  "https://fe-admin-dashboard.vercel.app", // ✅ tambahin FE admin
 ];
 
-// ✅ CORS
+// ✅ CORS fix
 app.use(
   cors({
     origin: function (origin, callback) {
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) {
-        return callback(null, origin);
+        return callback(null, true); // jangan return origin langsung
       } else {
         return callback(new Error("Not allowed by CORS"));
       }
     },
+    credentials: true, // ✅ biar cookie/token bisa ikut
   })
 );
 
@@ -47,7 +49,7 @@ app.get("/", (req, res) => {
   res.json({ message: "Welcome to DonateBank API" });
 });
 
-// ✅ Login route
+// ✅ Login route (pastikan ini ada dan kebaca)
 app.post("/v1/content/login", authController.loginUser);
 
 // ✅ Transactions
