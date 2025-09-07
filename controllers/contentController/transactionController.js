@@ -87,95 +87,58 @@ exports.getTransactions = async (req, res) => {
 };
 
 // ✅ 3. Webhook Notification
-exports.handleNotification = async (req, res) => {
+export const handleNotification = async (req, res) => {
   try {
-    console.log("📩 Webhook diterima di:", req.originalUrl);
-    console.log("📦 Body:", JSON.stringify(req.body, null, 2));
-
-    // ✅ Balas dulu biar Midtrans tidak retry
-    res.status(200).json({ received: true });
-
     const {
       order_id,
       status_code,
       gross_amount,
       signature_key,
       transaction_status,
-      fraud_status,
-      payment_type,
-      transaction_time,
-      va_numbers,
-      bill_key,
     } = req.body;
 
-    // 🔑 Validasi signature Midtrans (normalisasi gross_amount)
-    const normalizedAmount = Math.round(parseFloat(gross_amount)).toString();
+    // 🔑 Ambil serverKey dari Midtrans Dashboard
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
+
+    // ✅ Signature string harus sesuai format Midtrans
+    const signatureString = order_id + status_code + gross_amount + serverKey;
     const expectedSignature = crypto
       .createHash("sha512")
-      .update(order_id + status_code + normalizedAmount + serverKey)
+      .update(signatureString)
       .digest("hex");
 
     if (signature_key !== expectedSignature) {
       console.warn("⚠️ Invalid signature Midtrans untuk:", order_id);
       console.warn("Expected:", expectedSignature);
       console.warn("Got:", signature_key);
-      return;
+      return res.status(400).json({ message: "Invalid signature" });
     }
 
-    // 🔎 Cari transaksi di DB
-    const trx = await prisma.transaction.findUnique({
-      where: { orderId: order_id },
-    });
+    console.log("📩 Webhook valid diterima untuk:", order_id);
 
-    if (!trx) {
-      console.error("❌ Transaction not found in DB for:", order_id);
-      return; // Jangan bikin dummy transaksi
-    }
-
-    // 🎯 Mapping status Midtrans → DB
+    // ✅ Update status transaksi ke database
     let newStatus = "pending";
-    switch (transaction_status) {
-      case "capture":
-        newStatus = fraud_status === "challenge" ? "gagal" : "berhasil";
-        break;
-      case "settlement":
-        newStatus = "berhasil";
-        break;
-      case "cancel":
-      case "deny":
-      case "expire":
-        newStatus = "gagal";
-        break;
-      default:
-        console.log(`⚠️ Unhandled transaction_status: ${transaction_status}`);
+    if (transaction_status === "settlement") {
+      newStatus = "berhasil";
+    } else if (transaction_status === "expire" || transaction_status === "cancel") {
+      newStatus = "gagal";
+    } else if (transaction_status === "deny") {
+      newStatus = "gagal";
     }
 
     await prisma.transaction.update({
       where: { orderId: order_id },
-      data: {
-        status: newStatus,
-        paymentType: payment_type || null,
-        transactionTime: transaction_time ? new Date(transaction_time) : null,
-        fraudStatus: fraud_status || null,
-        vaNumber:
-          payment_type === "bank_transfer"
-            ? va_numbers?.[0]?.va_number || null
-            : bill_key || null,
-        bank:
-          payment_type === "bank_transfer"
-            ? va_numbers?.[0]?.bank || null
-            : payment_type === "echannel"
-            ? "mandiri"
-            : payment_type,
-      },
+      data: { status: newStatus },
     });
 
-    console.log(`✅ Transaction ${order_id} updated ➔ ${newStatus}`);
-  } catch (err) {
-    console.error("❌ Webhook error:", err);
+    console.log(`✅ Updated transaction ${order_id} ➔ ${newStatus}`);
+    return res.status(200).json({ message: "OK" });
+  } catch (error) {
+    console.error("❌ Error handleNotification:", error);
+    return res.status(500).json({ message: "Internal server error" });
   }
 };
+
 
 // ✅ 4. Manual check (opsional, pakai cron polling)
 const { checkTransactions } = require("../../midtransPolling");
