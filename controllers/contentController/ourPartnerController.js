@@ -1,9 +1,7 @@
-// backend/controllers/contentEdit/ourPartnerController.js
 const OurPartnerService = require("../../services/contentEdit/ourPartnerService");
 const ourPartnerService = new OurPartnerService();
 
 class OurPartnerController {
-  // Get all Our Partner entries
   async getAllOurPartners(req, res) {
     try {
       const ourPartnerEntries = await ourPartnerService.getAllOurPartners();
@@ -16,7 +14,6 @@ class OurPartnerController {
     }
   }
 
-  // Get Our Partner entry by ID
   async getOurPartnerById(req, res) {
     try {
       const { id } = req.params;
@@ -34,20 +31,16 @@ class OurPartnerController {
     }
   }
 
-  // Create new Our Partner entry
   async createOurPartner(req, res) {
     try {
       const { name } = req.body;
-      const file = req.file; // This comes from Multer
+      const file = req.file;
 
       if (!name) {
-        return res.status(400).json({ error: "Name are required" });
+        return res.status(400).json({ error: "Name is required" });
       }
 
-      const newOurPartner = await ourPartnerService.createOurPartner(
-        name,
-        file
-      );
+      const newOurPartner = await ourPartnerService.createOurPartner(name, file);
       res.status(201).json(newOurPartner);
     } catch (error) {
       res.status(500).json({
@@ -57,12 +50,11 @@ class OurPartnerController {
     }
   }
 
-  // Update Our Partner entry
   async updateOurPartner(req, res) {
     try {
       const { id } = req.params;
       const { name } = req.body;
-      const file = req.file; // This comes from Multer
+      const file = req.file;
 
       const existingOurPartner = await ourPartnerService.getOurPartnerById(
         Number(id)
@@ -87,7 +79,6 @@ class OurPartnerController {
     }
   }
 
-  // Delete Our Partner entry
   async deleteOurPartner(req, res) {
     try {
       const { id } = req.params;

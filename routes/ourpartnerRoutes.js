@@ -6,32 +6,12 @@ const upload = require("../middlewares/uploadMiddleware");
 const router = express.Router();
 
 // Public routes
-router.get(
-  "/",
-  ourPartnerController.getAllOurPartners.bind(ourPartnerController)
-);
-router.get(
-  "/:id",
-  ourPartnerController.getOurPartnerById.bind(ourPartnerController)
-);
+router.get("/", ourPartnerController.getAllOurPartners);
+router.get("/:id", ourPartnerController.getOurPartnerById);
 
-// Protected routes - require authentication
-router.post(
-  "/",
-  verifyToken,
-  upload.single("image"), // Middleware untuk mengunggah file (misalnya logo partner)
-  ourPartnerController.createOurPartner.bind(ourPartnerController)
-);
-router.put(
-  "/:id",
-  verifyToken,
-  upload.single("image"), // Middleware untuk mengunggah file (misalnya logo partner)
-  ourPartnerController.updateOurPartner.bind(ourPartnerController)
-);
-router.delete(
-  "/:id",
-  verifyToken,
-  ourPartnerController.deleteOurPartner.bind(ourPartnerController)
-);
+// Protected routes
+router.post("/", verifyToken, upload.single("image"), ourPartnerController.createOurPartner);
+router.put("/:id", verifyToken, upload.single("image"), ourPartnerController.updateOurPartner);
+router.delete("/:id", verifyToken, ourPartnerController.deleteOurPartner);
 
 module.exports = router;

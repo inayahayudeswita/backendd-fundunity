@@ -13,9 +13,7 @@ class OurPartnersRepository {
   }
 
   async create(partnerData) {
-    return await prisma.ourPartner.create({
-      data: partnerData,
-    });
+    return await prisma.ourPartner.create({ data: partnerData });
   }
 
   async update(id, partnerData) {

@@ -25,7 +25,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true); // allow Postman / curl / server-side
+      if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       } else {
@@ -98,4 +98,4 @@ const startServer = async () => {
 
 startServer();
 
-module.exports = app; // supaya bisa dipakai di testing (optional)
+module.exports = app;
