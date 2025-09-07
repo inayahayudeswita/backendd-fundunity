@@ -2,9 +2,12 @@ const express = require("express");
 const cors = require("cors");
 const { connectDB } = require("./config/db");
 
-// Controllers & Routes
+// Controllers
 const transactionController = require("./controllers/contentController/transactionController");
 const authController = require("./controllers/authController/login");
+const ourPartnerController = require("./controllers/contentController/ourPartnerController");
+
+// Routes
 const aboutusRoutes = require("./routes/aboutusRoutes");
 const imagesliderRoutes = require("./routes/imagesliderRoutes");
 const programRoutes = require("./routes/programRoutes");
@@ -13,7 +16,7 @@ const ourpartnerRoutes = require("./routes/ourpartnerRoutes");
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// ✅ Allowed origins
+// Allowed origins for CORS
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
@@ -21,58 +24,52 @@ const allowedOrigins = [
   "https://fe-admin-dashboard.vercel.app",
 ];
 
-// ✅ CORS middleware
+// CORS middleware
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (!origin) return callback(null, true);
+      if (!origin) return callback(null, true); // allow Postman / curl / server-side
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       } else {
         console.warn("❌ CORS blocked for origin:", origin);
-        return callback(new Error("Not allowed by CORS"));
+        return callback(new Error("Not allowed by CORS"), false);
       }
     },
     credentials: true,
   })
 );
 
-// ✅ Body parser
-app.use(express.json({ type: "*/*" }));
+// *** FIXED: Body parser ***
+app.use(express.json());  // <-- Jangan pakai { type: "*/*" }
 app.use(express.urlencoded({ extended: true }));
 
-// ✅ Root check
+// Root check
 app.get("/", (req, res) => {
   res.json({ message: "Welcome to FundUnity API (Render)" });
 });
 
-// ✅ Content routes
+// Content routes
 app.use("/v1/content/aboutus", aboutusRoutes);
 app.use("/v1/content/imageslider", imagesliderRoutes);
 app.use("/v1/content/program", programRoutes);
 app.use("/v1/content/ourpartner", ourpartnerRoutes);
 
-// ✅ Auth
+// Auth
 app.post("/v1/content/login", authController.loginUser);
 
-// ✅ Transactions
+// Transactions
 app.post("/v1/content/transaction", transactionController.createTransaction);
 app.get("/v1/content/transaction", transactionController.getTransactions);
-app.post(
-  "/v1/content/transaction/notification",
-  transactionController.handleNotification
-);
-app.get(
-  "/v1/content/transaction/check-status",
-  transactionController.checkStatus
-);
+app.post("/v1/content/transaction/notification", transactionController.handleNotification);
+app.get("/v1/content/transaction/check-status", transactionController.checkStatus);
 
-// ❌ 404 handler
+// 404 handler
 app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
-// ❌ Global Error handler
+// Error handler
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err.message);
   if (err.message === "Not allowed by CORS") {
@@ -81,7 +78,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal Server Error" });
 });
 
-// ✅ Start server
+// Start server
 const startServer = async () => {
   try {
     await connectDB();
@@ -97,5 +94,3 @@ const startServer = async () => {
 };
 
 startServer();
-
-module.exports = app;

@@ -1,103 +1,58 @@
 const OurPartnerService = require("../../services/contentEdit/ourPartnerService");
-const ourPartnerService = new OurPartnerService();
+const service = new OurPartnerService();
 
 class OurPartnerController {
-  async getAllOurPartners(req, res) {
+  async getAllPartners(req, res) {
     try {
-      const ourPartnerEntries = await ourPartnerService.getAllOurPartners();
-      res.status(200).json(ourPartnerEntries);
-    } catch (error) {
-      res.status(500).json({
-        error: "Failed to fetch Our Partner entries",
-        details: error.message,
-      });
+      const partners = await service.getAllOurPartners();
+      res.json(partners);
+    } catch (err) {
+      console.error("Error getAllPartners:", err);
+      res.status(500).json({ error: "Internal Server Error" });
     }
   }
 
-  async getOurPartnerById(req, res) {
+  async getPartnerById(req, res) {
     try {
-      const { id } = req.params;
-      const ourPartner = await ourPartnerService.getOurPartnerById(Number(id));
-
-      if (!ourPartner) {
-        return res.status(404).json({ error: "Our Partner not found" });
-      }
-
-      res.status(200).json(ourPartner);
-    } catch (error) {
-      res
-        .status(500)
-        .json({ error: "Failed to fetch Our Partner", details: error.message });
+      const partner = await service.getOurPartnerById(req.params.id);
+      res.json(partner);
+    } catch (err) {
+      console.error("Error getPartnerById:", err);
+      res.status(500).json({ error: "Internal Server Error" });
     }
   }
 
-  async createOurPartner(req, res) {
+  async createPartner(req, res) {
     try {
       const { name } = req.body;
-      const file = req.file;
-
-      if (!name) {
-        return res.status(400).json({ error: "Name is required" });
-      }
-
-      const newOurPartner = await ourPartnerService.createOurPartner(name, file);
-      res.status(201).json(newOurPartner);
-    } catch (error) {
-      res.status(500).json({
-        error: "Failed to create Our Partner",
-        details: error.message,
-      });
+      const file = req.file || null;
+      const newPartner = await service.createOurPartner(name, file);
+      res.status(201).json(newPartner);
+    } catch (err) {
+      console.error("Error createPartner:", err);
+      res.status(500).json({ error: "Internal Server Error" });
     }
   }
 
-  async updateOurPartner(req, res) {
+  async updatePartner(req, res) {
     try {
-      const { id } = req.params;
       const { name } = req.body;
-      const file = req.file;
-
-      const existingOurPartner = await ourPartnerService.getOurPartnerById(
-        Number(id)
-      );
-
-      if (!existingOurPartner) {
-        return res.status(404).json({ error: "Our Partner not found" });
-      }
-
-      const updatedOurPartner = await ourPartnerService.updateOurPartner(
-        Number(id),
-        name || existingOurPartner.name,
-        file
-      );
-
-      res.status(200).json(updatedOurPartner);
-    } catch (error) {
-      res.status(500).json({
-        error: "Failed to update Our Partner",
-        details: error.message,
-      });
+      const file = req.file || null;
+      const updated = await service.updateOurPartner(req.params.id, name, file);
+      res.json(updated);
+    } catch (err) {
+      console.error("Error updatePartner:", err);
+      res.status(500).json({ error: "Internal Server Error" });
     }
   }
 
-  async deleteOurPartner(req, res) {
+  async deletePartner(req, res) {
     try {
-      const { id } = req.params;
-
-      const existingOurPartner = await ourPartnerService.getOurPartnerById(
-        Number(id)
-      );
-
-      if (!existingOurPartner) {
-        return res.status(404).json({ error: "Our Partner not found" });
-      }
-
-      await ourPartnerService.deleteOurPartner(Number(id));
-      res.status(200).json({ message: "Our Partner deleted successfully" });
-    } catch (error) {
-      res.status(500).json({
-        error: "Failed to delete Our Partner",
-        details: error.message,
-      });
+      await service.deleteOurPartner(req.params.id);
+      res.json({ message: "Partner deleted" });
+    } catch (err) {
+      console.error("Error deletePartner:", err);
+      res.status(500).json({ error: "Internal Server Error" });
     }
   }
 }

@@ -12,7 +12,11 @@ class OurPartnerService {
   }
 
   async getOurPartnerById(id) {
-    return await this.ourPartnerRepository.findById(id);
+    const partner = await this.ourPartnerRepository.findById(id);
+    if (!partner) {
+      throw new Error("Partner not found");
+    }
+    return partner;
   }
 
   async createOurPartner(name, file = null) {
@@ -30,6 +34,9 @@ class OurPartnerService {
 
   async updateOurPartner(id, name, file = null) {
     const existingPartner = await this.ourPartnerRepository.findById(id);
+    if (!existingPartner) {
+      throw new Error("Partner not found");
+    }
 
     let partnerData = { name: name || existingPartner.name };
 
@@ -49,6 +56,9 @@ class OurPartnerService {
 
   async deleteOurPartner(id) {
     const existingPartner = await this.ourPartnerRepository.findById(id);
+    if (!existingPartner) {
+      throw new Error("Partner not found");
+    }
 
     if (existingPartner.imageId) {
       await imageKitService.deleteFile(existingPartner.imageId);

@@ -1,17 +1,18 @@
 const express = require("express");
-const ourPartnerController = require("../controllers/contentController/ourPartnerController");
-const { verifyToken } = require("../middlewares/auth");
-const upload = require("../middlewares/uploadMiddleware");
-
+const multer = require("multer");
 const router = express.Router();
+const ourPartnerController = require("../controllers/contentController/ourPartnerController");
 
-// Public routes
-router.get("/", ourPartnerController.getAllOurPartners);
-router.get("/:id", ourPartnerController.getOurPartnerById);
+const upload = multer(); // simpan file di memory (jika pakai imageKit)
 
-// Protected routes
-router.post("/", verifyToken, upload.single("image"), ourPartnerController.createOurPartner);
-router.put("/:id", verifyToken, upload.single("image"), ourPartnerController.updateOurPartner);
-router.delete("/:id", verifyToken, ourPartnerController.deleteOurPartner);
+// Routes
+router.get("/", (req, res) => ourPartnerController.getAllPartners(req, res));
+router.get("/:id", (req, res) => ourPartnerController.getPartnerById(req, res));
 
-module.exports = router;
+// ✅ Tambahkan upload.single('image') di POST dan PUT
+router.post("/", upload.single("image"), (req, res) => ourPartnerController.createPartner(req, res));
+router.put("/:id", upload.single("image"), (req, res) => ourPartnerController.updatePartner(req, res));
+
+router.delete("/:id", (req, res) => ourPartnerController.deletePartner(req, res));
+
+module.exports = router;
