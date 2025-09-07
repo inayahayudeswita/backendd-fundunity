@@ -23,9 +23,7 @@ class OurPartnerService {
 
     // If a file is provided, upload it to ImageKit
     if (file) {
-      const fileName = `partner_${Date.now()}${path.extname(
-        file.originalname
-      )}`;
+     const fileName = `partner_${Date.now()}${path.extname(file.originalname)}`;
       const uploadResult = await imageKitService.uploadFile(file, fileName);
 
       // Add the image information to the partner data

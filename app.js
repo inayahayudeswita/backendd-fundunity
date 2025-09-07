@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const { connectDB } = require("./config/db");
 
+// Controllers & Routes
 const transactionController = require("./controllers/contentController/transactionController");
 const authController = require("./controllers/authController/login");
 const aboutusRoutes = require("./routes/aboutusRoutes");
@@ -29,7 +30,7 @@ app.use(
         return callback(null, true);
       } else {
         console.warn("❌ CORS blocked for origin:", origin);
-        return callback(null, false); // block silently
+        return callback(new Error("Not allowed by CORS"));
       }
     },
     credentials: true,
@@ -71,7 +72,7 @@ app.use((req, res) => {
   res.status(404).json({ error: "Not Found" });
 });
 
-// ❌ Error handler
+// ❌ Global Error handler
 app.use((err, req, res, next) => {
   console.error("Unhandled error:", err.message);
   if (err.message === "Not allowed by CORS") {
@@ -96,3 +97,5 @@ const startServer = async () => {
 };
 
 startServer();
+
+module.exports = app; // supaya bisa dipakai di testing (optional)

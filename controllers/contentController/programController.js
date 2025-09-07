@@ -1,4 +1,3 @@
-// backend/controllers/contentEdit/programsController.js
 const ProgramsService = require("../../services/contentEdit/programsService");
 const programsService = new ProgramsService();
 
@@ -9,6 +8,7 @@ class ProgramsController {
       const programsEntries = await programsService.getAllPrograms();
       res.status(200).json(programsEntries);
     } catch (error) {
+      console.error("Error fetching all programs:", error);
       res.status(500).json({
         error: "Failed to fetch Programs entries",
         details: error.message,
@@ -28,9 +28,11 @@ class ProgramsController {
 
       res.status(200).json(program);
     } catch (error) {
-      res
-        .status(500)
-        .json({ error: "Failed to fetch Program", details: error.message });
+      console.error(`Error fetching program with id ${req.params.id}:`, error);
+      res.status(500).json({
+        error: "Failed to fetch Program",
+        details: error.message,
+      });
     }
   }
 
@@ -40,22 +42,24 @@ class ProgramsController {
       const { title, description } = req.body;
       const file = req.file; // This comes from Multer
 
+      // Validasi input
       if (!title || !description) {
-        return res
-          .status(400)
-          .json({ error: "Title and description are required" });
+        return res.status(400).json({ error: "Title and description are required" });
       }
 
-      const newProgram = await programsService.createProgram(
-        title,
-        description,
-        file
-      );
+      // Validasi file (contoh: hanya menerima gambar)
+      if (file && !file.mimetype.startsWith("image/")) {
+        return res.status(400).json({ error: "File must be an image" });
+      }
+
+      const newProgram = await programsService.createProgram(title, description, file);
       res.status(201).json(newProgram);
     } catch (error) {
-      res
-        .status(500)
-        .json({ error: "Failed to create Program", details: error.message });
+      console.error("Error creating program:", error);
+      res.status(500).json({
+        error: "Failed to create Program",
+        details: error.message,
+      });
     }
   }
 
@@ -72,6 +76,11 @@ class ProgramsController {
         return res.status(404).json({ error: "Program not found" });
       }
 
+      // Validasi file (contoh: hanya menerima gambar)
+      if (file && !file.mimetype.startsWith("image/")) {
+        return res.status(400).json({ error: "File must be an image" });
+      }
+
       const updatedProgram = await programsService.updateProgram(
         Number(id),
         title || existingProgram.title,
@@ -81,9 +90,11 @@ class ProgramsController {
 
       res.status(200).json(updatedProgram);
     } catch (error) {
-      res
-        .status(500)
-        .json({ error: "Failed to update Program", details: error.message });
+      console.error(`Error updating program with id ${req.params.id}:`, error);
+      res.status(500).json({
+        error: "Failed to update Program",
+        details: error.message,
+      });
     }
   }
 
@@ -101,9 +112,11 @@ class ProgramsController {
       await programsService.deleteProgram(Number(id));
       res.status(200).json({ message: "Program deleted successfully" });
     } catch (error) {
-      res
-        .status(500)
-        .json({ error: "Failed to delete Program", details: error.message });
+      console.error(`Error deleting program with id ${req.params.id}:`, error);
+      res.status(500).json({
+        error: "Failed to delete Program",
+        details: error.message,
+      });
     }
   }
 }
