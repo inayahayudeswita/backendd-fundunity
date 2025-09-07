@@ -3,9 +3,9 @@ const midtransClient = require("midtrans-client");
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
-// ✅ Snap Client (Production)
+// ✅ Snap Client (Production/Sandbox sesuai setting)
 const snap = new midtransClient.Snap({
-  isProduction: true,
+  isProduction: true, // ubah ke false kalau masih Sandbox
   serverKey: process.env.MIDTRANS_SERVER_KEY,
   clientKey: process.env.MIDTRANS_CLIENT_KEY,
 });
@@ -20,7 +20,7 @@ exports.createTransaction = async (req, res) => {
     });
   }
 
-  // 🔑 Order ID konsisten dengan DB dan Midtrans
+  // 🔑 Order ID konsisten dengan DB & Midtrans
   const orderId = `fundunity-${Date.now()}`;
 
   const parameter = {
@@ -41,7 +41,6 @@ exports.createTransaction = async (req, res) => {
         price: amount,
       },
     ],
-    // ✅ Pastikan sama persis dengan app.js
     notification_url:
       "https://backendd-fundunity.onrender.com/v1/content/transaction/notification",
     callbacks: {
@@ -93,7 +92,7 @@ exports.handleNotification = async (req, res) => {
     console.log("📩 Webhook diterima di:", req.originalUrl);
     console.log("📦 Body:", JSON.stringify(req.body, null, 2));
 
-    // ✅ Balas lebih dulu biar Midtrans tidak retry
+    // ✅ Balas dulu biar Midtrans tidak retry
     res.status(200).json({ received: true });
 
     const {
@@ -110,7 +109,7 @@ exports.handleNotification = async (req, res) => {
     } = req.body;
 
     // 🔑 Validasi signature Midtrans (normalisasi gross_amount)
-    const normalizedAmount = parseInt(gross_amount).toString();
+    const normalizedAmount = Math.round(parseFloat(gross_amount)).toString();
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
     const expectedSignature = crypto
       .createHash("sha512")
@@ -125,40 +124,16 @@ exports.handleNotification = async (req, res) => {
     }
 
     // 🔎 Cari transaksi di DB
-    let trx = await prisma.transaction.findUnique({
+    const trx = await prisma.transaction.findUnique({
       where: { orderId: order_id },
     });
 
-    // ⚡ Kalau transaksi gak ketemu (misalnya test notif), buat baru
     if (!trx) {
-      console.warn("⚠️ Transaction not found, creating new:", order_id);
-      trx = await prisma.transaction.create({
-        data: {
-          orderId: order_id,
-          nama: "Webhook User",
-          email: "webhook@test.com",
-          amount: parseInt(gross_amount),
-          notes: "Created from webhook",
-          status: "pending",
-          paymentType: payment_type,
-          fraudStatus: fraud_status,
-          transactionTime: transaction_time ? new Date(transaction_time) : null,
-          vaNumber:
-            payment_type === "bank_transfer"
-              ? va_numbers?.[0]?.va_number || null
-              : bill_key || null,
-          bank:
-            payment_type === "bank_transfer"
-              ? va_numbers?.[0]?.bank || null
-              : payment_type === "echannel"
-              ? "mandiri"
-              : payment_type,
-        },
-      });
-      console.log(`✅ Transaction ${order_id} created from webhook`);
+      console.error("❌ Transaction not found in DB for:", order_id);
+      return; // Jangan bikin dummy transaksi
     }
 
-    // 🎯 Update status kalau transaksi sudah ada / baru dibuat
+    // 🎯 Mapping status Midtrans → DB
     let newStatus = "pending";
     switch (transaction_status) {
       case "capture":
@@ -202,7 +177,7 @@ exports.handleNotification = async (req, res) => {
   }
 };
 
-// ✅ 4. Manual check (opsional)
+// ✅ 4. Manual check (opsional, pakai cron polling)
 const { checkTransactions } = require("../../midtransPolling");
 exports.checkStatus = async (req, res) => {
   try {
