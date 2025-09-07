@@ -109,7 +109,7 @@ exports.handleNotification = async (req, res) => {
       bill_key,
     } = req.body;
 
-    // 🔑 Validasi signature Midtrans (FIXED: normalisasi gross_amount)
+    // 🔑 Validasi signature Midtrans (normalisasi gross_amount)
     const normalizedAmount = parseInt(gross_amount).toString();
     const serverKey = process.env.MIDTRANS_SERVER_KEY;
     const expectedSignature = crypto
@@ -139,7 +139,7 @@ exports.handleNotification = async (req, res) => {
           email: "webhook@test.com",
           amount: parseInt(gross_amount),
           notes: "Created from webhook",
-          status: transaction_status === "settlement" ? "berhasil" : "pending",
+          status: "pending",
           paymentType: payment_type,
           fraudStatus: fraud_status,
           transactionTime: transaction_time ? new Date(transaction_time) : null,
@@ -156,10 +156,9 @@ exports.handleNotification = async (req, res) => {
         },
       });
       console.log(`✅ Transaction ${order_id} created from webhook`);
-      return;
     }
 
-    // 🎯 Update status kalau transaksi sudah ada
+    // 🎯 Update status kalau transaksi sudah ada / baru dibuat
     let newStatus = "pending";
     switch (transaction_status) {
       case "capture":
